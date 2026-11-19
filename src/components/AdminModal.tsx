@@ -3,8 +3,13 @@ import { User, onAuthStateChanged } from 'firebase/auth';
 import {
   AlertCircle,
   Building2,
+  CalendarClock,
+  Check,
   CheckCircle2,
   ClipboardList,
+  Copy,
+  Eye,
+  Globe,
   ImagePlus,
   Lock,
   LogOut,
@@ -12,6 +17,7 @@ import {
   MessageCircle,
   Phone,
   Plus,
+  Rocket,
   Star,
   Trash2,
   Upload,
@@ -20,6 +26,8 @@ import {
 } from 'lucide-react';
 import { BOOTSTRAPPED_ADMIN_EMAIL, auth } from '../firebase';
 import {
+  LaunchConfig,
+  LaunchMode,
   LeadStatus,
   MediaType,
   PartnerBrand,
@@ -41,6 +49,7 @@ import {
   removePartnerBrand,
   removePortfolioProject,
   removeWhatsAppChannel,
+  saveLaunchConfig,
   seedInitialChannelsIfEmpty,
   setPrimaryWhatsAppChannel,
   signInAdminWithGoogle,
@@ -55,9 +64,24 @@ interface AdminModalProps {
   channels: WhatsAppChannel[];
   projects: PortfolioProject[];
   partners: PartnerBrand[];
+  launchConfig: LaunchConfig;
+  adminPreviewSite: boolean;
+  onTogglePreviewSite: () => void;
 }
 
-type AdminTab = 'whatsapp' | 'portfolio' | 'partners' | 'leads';
+type AdminTab = 'whatsapp' | 'portfolio' | 'partners' | 'leads' | 'launch';
+
+function toLocalDateTimeInput(iso: string): string {
+  const parsed = Date.parse(iso);
+  if (!iso || !Number.isFinite(parsed)) {
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    tomorrow.setMinutes(tomorrow.getMinutes() - tomorrow.getTimezoneOffset());
+    return tomorrow.toISOString().slice(0, 16);
+  }
+  const d = new Date(parsed);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+}
 
 export function AdminModal({
   isOpen,
@@ -65,6 +89,9 @@ export function AdminModal({
   channels,
   projects,
   partners,
+  launchConfig,
+  adminPreviewSite,
+  onTogglePreviewSite,
 }: AdminModalProps) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthorizedAdmin, setIsAuthorizedAdmin] = useState(false);
@@ -105,6 +132,27 @@ export function AdminModal({
   const [partnerActionUrl, setPartnerActionUrl] = useState('');
   const [partnerError, setPartnerError] = useState('');
   const [isProcessingPartnerImg, setIsProcessingPartnerImg] = useState(false);
+
+  // Launch Automation Form State
+  const [launchMode, setLaunchMode] = useState<LaunchMode>(launchConfig.mode);
+  const [launchDateLocal, setLaunchDateLocal] = useState<string>(() =>
+    toLocalDateTimeInput(launchConfig.scheduledAt)
+  );
+  const [launchHeadline, setLaunchHeadline] = useState(launchConfig.headline);
+  const [launchSubheadline, setLaunchSubheadline] = useState(
+    launchConfig.subheadline
+  );
+  const [launchAutoOpen, setLaunchAutoOpen] = useState(launchConfig.autoOpen);
+  const [launchError, setLaunchError] = useState('');
+  const [copiedUrl, setCopiedUrl] = useState(false);
+
+  useEffect(() => {
+    setLaunchMode(launchConfig.mode);
+    setLaunchDateLocal(toLocalDateTimeInput(launchConfig.scheduledAt));
+    setLaunchHeadline(launchConfig.headline);
+    setLaunchSubheadline(launchConfig.subheadline);
+    setLaunchAutoOpen(launchConfig.autoOpen);
+  }, [launchConfig]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -386,6 +434,71 @@ export function AdminModal({
     }
   };
 
+  // --- Launch Handlers ---
+  const handleSaveLaunchSettings = async (e: FormEvent) => {
+    e.preventDefault();
+    setLaunchError('');
+    setBusyAction(true);
+    try {
+      const scheduledIso =
+        launchMode === 'scheduled' && launchDateLocal
+          ? new Date(launchDateLocal).toISOString()
+          : '';
+      await saveLaunchConfig({
+        mode: launchMode,
+        scheduledAt: scheduledIso,
+        headline: launchHeadline,
+        subheadline: launchSubheadline,
+        autoOpen: launchAutoOpen,
+      });
+      setFeedbackMsg(
+        launchMode === 'live'
+          ? 'Site lançado ao vivo para todos os visitantes!'
+          : 'Lançamento automático agendado e salvo no Firebase!'
+      );
+    } catch (err) {
+      setLaunchError(
+        err instanceof Error
+          ? err.message
+          : 'Erro ao salvar configuração de lançamento.'
+      );
+    } finally {
+      setBusyAction(false);
+    }
+  };
+
+  const handleInstantLaunch = async () => {
+    setLaunchError('');
+    setBusyAction(true);
+    try {
+      await saveLaunchConfig({
+        mode: 'live',
+        scheduledAt: '',
+        headline: launchHeadline,
+        subheadline: launchSubheadline,
+        autoOpen: true,
+      });
+      setLaunchMode('live');
+      setFeedbackMsg('Site colocado NO AR imediatamente para o público!');
+    } catch (err) {
+      setLaunchError(
+        err instanceof Error ? err.message : 'Erro ao lançar o site.'
+      );
+    } finally {
+      setBusyAction(false);
+    }
+  };
+
+  const handleCopySiteUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.origin);
+      setCopiedUrl(true);
+      setTimeout(() => setCopiedUrl(false), 2500);
+    } catch {
+      setFeedbackMsg(`Link do site: ${window.location.origin}`);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0f172a]/80 backdrop-blur-xs"
@@ -544,6 +657,21 @@ export function AdminModal({
                 >
                   <ClipboardList className="w-4 h-4" aria-hidden="true" />
                   <span>Orçamentos ({leads.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === 'launch'}
+                  onClick={() => setActiveTab('launch')}
+                  className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors cursor-pointer ${
+                    activeTab === 'launch'
+                      ? 'bg-[#0f172a] text-white'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-[#0f172a]'
+                  }`}
+                >
+                  <Rocket className="w-4 h-4" aria-hidden="true" />
+                  <span>Lançamento</span>
                 </button>
               </div>
 
@@ -1213,6 +1341,238 @@ export function AdminModal({
                       })}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* TAB 5: AUTOMATIC LAUNCH & PUBLISHING */}
+              {activeTab === 'launch' && (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  <form
+                    onSubmit={handleSaveLaunchSettings}
+                    className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-6 space-y-4 self-start"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="font-display text-lg font-bold text-[#0f172a]">
+                        Lançamento Automático do Site
+                      </h3>
+                      <span
+                        className={`text-xs font-semibold px-2.5 py-1 rounded-md ${
+                          launchConfig.mode === 'live'
+                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                            : 'bg-amber-50 text-amber-800 border border-amber-200'
+                        }`}
+                      >
+                        {launchConfig.mode === 'live'
+                          ? 'Site No Ar (Público)'
+                          : 'Pré-Lançamento Agendado'}
+                      </span>
+                    </div>
+
+                    {launchError && (
+                      <div
+                        role="alert"
+                        className="p-3 text-xs text-red-800 bg-red-50 border border-red-200 rounded-lg"
+                      >
+                        {launchError}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setLaunchMode('live')}
+                        className={`p-3.5 text-left border rounded-xl transition-colors cursor-pointer ${
+                          launchMode === 'live'
+                            ? 'border-[#0f172a] bg-slate-50'
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <p className="font-display text-sm font-bold text-[#0f172a] flex items-center gap-2">
+                          <Globe className="w-4 h-4 text-emerald-600" aria-hidden="true" />
+                          <span>Site No Ar (Imediato)</span>
+                        </p>
+                        <p className="text-xs text-slate-600 mt-1">
+                          Todos os visitantes acessam o site completo da JM Construções agora.
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setLaunchMode('scheduled')}
+                        className={`p-3.5 text-left border rounded-xl transition-colors cursor-pointer ${
+                          launchMode === 'scheduled'
+                            ? 'border-[#ea580c] bg-orange-50/40'
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <p className="font-display text-sm font-bold text-[#0f172a] flex items-center gap-2">
+                          <CalendarClock className="w-4 h-4 text-[#ea580c]" aria-hidden="true" />
+                          <span>Agendar Lançamento</span>
+                        </p>
+                        <p className="text-xs text-slate-600 mt-1">
+                          Exibe contagem regressiva e abre o site automaticamente na data marcada.
+                        </p>
+                      </button>
+                    </div>
+
+                    {launchMode === 'scheduled' && (
+                      <div className="space-y-4 pt-2 border-t border-slate-100">
+                        <div>
+                          <label
+                            htmlFor="launch-datetime"
+                            className="block text-xs font-semibold text-[#0f172a] mb-1"
+                          >
+                            Data e Hora do Lançamento Automático *
+                          </label>
+                          <input
+                            id="launch-datetime"
+                            type="datetime-local"
+                            value={launchDateLocal}
+                            onChange={(e) => setLaunchDateLocal(e.target.value)}
+                            className="w-full px-3 py-2 text-sm font-mono bg-[#f8fafc] border border-slate-300 rounded-lg focus:outline-none focus:border-[#ea580c]"
+                          />
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor="launch-headline"
+                            className="block text-xs font-semibold text-[#0f172a] mb-1"
+                          >
+                            Título da Página de Lançamento *
+                          </label>
+                          <input
+                            id="launch-headline"
+                            type="text"
+                            value={launchHeadline}
+                            onChange={(e) => setLaunchHeadline(e.target.value)}
+                            className="w-full px-3 py-2 text-sm bg-[#f8fafc] border border-slate-300 rounded-lg focus:outline-none focus:border-[#ea580c]"
+                          />
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor="launch-subheadline"
+                            className="block text-xs font-semibold text-[#0f172a] mb-1"
+                          >
+                            Mensagem aos Visitantes *
+                          </label>
+                          <textarea
+                            id="launch-subheadline"
+                            rows={2}
+                            value={launchSubheadline}
+                            onChange={(e) => setLaunchSubheadline(e.target.value)}
+                            className="w-full px-3 py-2 text-sm bg-[#f8fafc] border border-slate-300 rounded-lg focus:outline-none focus:border-[#ea580c]"
+                          />
+                        </div>
+
+                        <label className="flex items-center gap-2.5 text-xs font-medium text-[#0f172a] cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={launchAutoOpen}
+                            onChange={(e) => setLaunchAutoOpen(e.target.checked)}
+                            className="w-4 h-4 accent-[#ea580c]"
+                          />
+                          <span>
+                            Lançar e abrir o site completo automaticamente quando o cronômetro zerar
+                          </span>
+                        </label>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-3 pt-2">
+                      <button
+                        type="submit"
+                        disabled={busyAction}
+                        className="inline-flex items-center justify-center gap-2 py-2.5 px-5 text-sm font-semibold text-white bg-[#ea580c] hover:bg-[#c2410c] disabled:opacity-60 rounded-lg transition-colors cursor-pointer"
+                      >
+                        <Rocket className="w-4 h-4" aria-hidden="true" />
+                        <span>
+                          {launchMode === 'live'
+                            ? 'Salvar: Site Público No Ar'
+                            : 'Salvar Agendamento Automático'}
+                        </span>
+                      </button>
+
+                      {launchConfig.mode === 'scheduled' && (
+                        <button
+                          type="button"
+                          disabled={busyAction}
+                          onClick={handleInstantLaunch}
+                          className="inline-flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-semibold text-[#0f172a] bg-[#25d366] hover:bg-[#20bd5a] disabled:opacity-60 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <span>Lançar Agora</span>
+                        </button>
+                      )}
+                    </div>
+                  </form>
+
+                  <div className="lg:col-span-5 space-y-4">
+                    <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-3">
+                      <h4 className="font-display text-base font-bold text-[#0f172a]">
+                        Link Oficial do Site
+                      </h4>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Compartilhe este endereço com clientes e fornecedores. Todas as alterações salvas aqui no Firebase aparecem em tempo real.
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={
+                            typeof window !== 'undefined'
+                              ? window.location.origin
+                              : ''
+                          }
+                          aria-label="Endereço do site"
+                          className="flex-1 px-3 py-2 text-xs font-mono bg-[#f8fafc] border border-slate-300 rounded-lg text-slate-700"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleCopySiteUrl}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-[#0f172a] hover:bg-slate-800 rounded-lg transition-colors cursor-pointer shrink-0"
+                        >
+                          {copiedUrl ? (
+                            <Check className="w-3.5 h-3.5 text-[#25d366]" aria-hidden="true" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" aria-hidden="true" />
+                          )}
+                          <span>{copiedUrl ? 'Copiado' : 'Copiar'}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {launchConfig.mode === 'scheduled' && (
+                      <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-3">
+                        <h4 className="font-display text-base font-bold text-[#0f172a]">
+                          Pré-visualização Administrativa
+                        </h4>
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          Enquanto os visitantes veem a contagem regressiva, você pode alternar para visualizar o site completo a qualquer momento.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={onTogglePreviewSite}
+                          className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 text-xs font-semibold text-[#0f172a] bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Eye className="w-4 h-4 text-[#ea580c]" aria-hidden="true" />
+                          <span>
+                            {adminPreviewSite
+                              ? 'Voltar à Tela de Pré-Lançamento'
+                              : 'Pré-visualizar Site Completo'}
+                          </span>
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-2">
+                      <h4 className="font-display text-sm font-bold text-[#0f172a]">
+                        Publicação Automática (Firebase Hosting)
+                      </h4>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Projeto configurado com <code className="font-mono text-[#0f172a]">firebase.json</code>, <code className="font-mono text-[#0f172a]">.firebaserc</code> e fluxo automático via GitHub Actions para deploy contínuo no Firebase Hosting.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

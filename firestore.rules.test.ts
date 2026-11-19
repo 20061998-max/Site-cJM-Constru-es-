@@ -15,4 +15,5 @@ export const DIRTY_DOZEN_CASES = [
   { id: 10, name: 'Unverified Admin Email Spoof', path: '/leads', expected: 'PERMISSION_DENIED' },
   { id: 11, name: 'Self-Assigned Admin Escalation', path: '/admins/attacker', expected: 'PERMISSION_DENIED' },
   { id: 12, name: 'Immutable createdAt Mutation', path: '/leads/lead-1', expected: 'PERMISSION_DENIED' },
+  { id: 13, name: 'Unauthorized Launch Settings Write', path: '/site_settings/launch', expected: 'PERMISSION_DENIED' },
 ] as const;

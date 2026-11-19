@@ -54,3 +54,12 @@ export interface PartnerBrand {
   createdAt: string;
 }
 
+export type LaunchMode = 'live' | 'scheduled';
+
+export interface LaunchConfig {
+  mode: LaunchMode;
+  scheduledAt: string;
+  headline: string;
+  subheadline: string;
+  autoOpen: boolean;
+}

@@ -220,6 +220,48 @@
         }
       },
       "required": ["email", "createdAt"]
+    },
+    "LaunchConfig": {
+      "title": "LaunchConfig",
+      "description": "Configuração de lançamento automático e visibilidade pública do site.",
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["live", "scheduled"],
+          "description": "Define se o site já está no ar ou em contagem regressiva para lançamento automático."
+        },
+        "scheduledAt": {
+          "type": "string",
+          "maxLength": 40,
+          "description": "Data e hora ISO para abertura automática do site."
+        },
+        "headline": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 140,
+          "description": "Título exibido na página de pré-lançamento."
+        },
+        "subheadline": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 400,
+          "description": "Descrição exibida na página de pré-lançamento."
+        },
+        "autoOpen": {
+          "type": "boolean",
+          "description": "Libera o site automaticamente quando o cronômetro chega a zero."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["mode", "scheduledAt", "headline", "subheadline", "autoOpen", "createdAt"]
     }
   },
   "firestore": {
@@ -238,6 +280,10 @@
     "/leads/{leadId}": {
       "schema": { "$ref": "#/entities/QuoteLead" },
       "description": "Pedidos de orçamento enviados por visitantes (PII restrita ao admin)."
+    },
+    "/site_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/LaunchConfig" },
+      "description": "Configurações globais de lançamento automático do site."
     },
     "/admins/{adminId}": {
       "schema": { "$ref": "#/entities/AdminUser" },

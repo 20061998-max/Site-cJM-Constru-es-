@@ -23,6 +23,8 @@ import {
   handleFirestoreError,
 } from '../firebase';
 import {
+  LaunchConfig,
+  LaunchMode,
   LeadStatus,
   MediaType,
   PartnerBrand,
@@ -53,6 +55,15 @@ export const INITIAL_WHATSAPP_CHANNELS: WhatsAppChannel[] = [
       'Cronogramas, especificações estruturais, ART e suporte de canteiro.',
   },
 ];
+
+export const DEFAULT_LAUNCH_CONFIG: LaunchConfig = {
+  mode: 'live',
+  scheduledAt: '',
+  headline: 'Inauguração Oficial do Novo Portal JM Construções',
+  subheadline:
+    'Estamos finalizando os últimos ajustes para apresentar nossas obras, marcas parceiras e central de orçamentos 100% digital.',
+  autoOpen: true,
+};
 
 function timestampToIso(value: unknown): string {
   if (value instanceof Timestamp) {
@@ -497,6 +508,89 @@ export async function removeAdminLead(id: string): Promise<void> {
     await deleteDoc(doc(db, 'leads', id));
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, `leads/${id}`);
+  }
+}
+
+export function subscribeLaunchConfig(
+  onData: (config: LaunchConfig) => void
+): () => void {
+  const path = 'site_settings/launch';
+  return onSnapshot(
+    doc(db, 'site_settings', 'launch'),
+    (snapshot) => {
+      if (!snapshot.exists()) {
+        onData(DEFAULT_LAUNCH_CONFIG);
+        return;
+      }
+      const data = snapshot.data();
+      onData({
+        mode: (data.mode as LaunchMode) === 'scheduled' ? 'scheduled' : 'live',
+        scheduledAt: String(data.scheduledAt ?? ''),
+        headline: String(data.headline ?? DEFAULT_LAUNCH_CONFIG.headline),
+        subheadline: String(
+          data.subheadline ?? DEFAULT_LAUNCH_CONFIG.subheadline
+        ),
+        autoOpen:
+          typeof data.autoOpen === 'boolean'
+            ? data.autoOpen
+            : DEFAULT_LAUNCH_CONFIG.autoOpen,
+      });
+    },
+    (error) => {
+      handleFirestoreError(error, OperationType.GET, path);
+    }
+  );
+}
+
+export async function saveLaunchConfig(payload: LaunchConfig): Promise<void> {
+  const path = 'site_settings/launch';
+  const headline = (
+    payload.headline.trim() || DEFAULT_LAUNCH_CONFIG.headline
+  ).slice(0, 140);
+  const subheadline = (
+    payload.subheadline.trim() || DEFAULT_LAUNCH_CONFIG.subheadline
+  ).slice(0, 400);
+  const mode: LaunchMode = payload.mode === 'scheduled' ? 'scheduled' : 'live';
+  const scheduledAt =
+    mode === 'scheduled' ? payload.scheduledAt.trim().slice(0, 40) : '';
+
+  if (headline.length < 3) {
+    throw new Error('Informe o título do lançamento (mínimo 3 caracteres).');
+  }
+  if (subheadline.length < 5) {
+    throw new Error('Informe a descrição do lançamento (mínimo 5 caracteres).');
+  }
+  if (mode === 'scheduled') {
+    const parsed = Date.parse(scheduledAt);
+    if (!scheduledAt || !Number.isFinite(parsed)) {
+      throw new Error('Informe uma data e hora válidas para o lançamento automático.');
+    }
+  }
+
+  try {
+    const ref = doc(db, 'site_settings', 'launch');
+    const existingSnap = await getDoc(ref);
+    if (existingSnap.exists()) {
+      await updateDoc(ref, {
+        mode,
+        scheduledAt,
+        headline,
+        subheadline,
+        autoOpen: Boolean(payload.autoOpen),
+        updatedAt: serverTimestamp(),
+      });
+    } else {
+      await setDoc(ref, {
+        mode,
+        scheduledAt,
+        headline,
+        subheadline,
+        autoOpen: Boolean(payload.autoOpen),
+        createdAt: serverTimestamp(),
+      });
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
 

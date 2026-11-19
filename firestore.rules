@@ -86,6 +86,18 @@ service cloud.firestore {
         && (!('updatedAt' in data) || data.updatedAt is timestamp);
     }
 
+    function isValidLaunchConfig(data) {
+      return data.keys().hasAll(['mode', 'scheduledAt', 'headline', 'subheadline', 'autoOpen', 'createdAt'])
+        && data.keys().hasOnly(['mode', 'scheduledAt', 'headline', 'subheadline', 'autoOpen', 'createdAt', 'updatedAt'])
+        && data.mode is string && data.mode in ['live', 'scheduled']
+        && data.scheduledAt is string && data.scheduledAt.size() <= 40
+        && data.headline is string && data.headline.size() >= 3 && data.headline.size() <= 140
+        && data.subheadline is string && data.subheadline.size() >= 5 && data.subheadline.size() <= 400
+        && data.autoOpen is bool
+        && data.createdAt is timestamp
+        && (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
     // 4. Connection Validation Probe
     match /test/{docId} {
       allow get: if docId == 'connection';
@@ -155,7 +167,27 @@ service cloud.firestore {
       allow delete: if isAdmin() && isValidId(leadId);
     }
 
-    // 9. Admin Registry (Strictly locked)
+    // 9. Site Launch Settings (Public get on 'launch', Admin create/update)
+    match /site_settings/{settingId} {
+      allow get: if isValidId(settingId) && settingId == 'launch';
+      allow list: if false;
+      allow create: if isAdmin()
+        && isValidId(settingId)
+        && settingId == 'launch'
+        && isValidLaunchConfig(incoming())
+        && incoming().createdAt == request.time
+        && !('updatedAt' in incoming());
+      allow update: if isAdmin()
+        && isValidId(settingId)
+        && settingId == 'launch'
+        && isValidLaunchConfig(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['mode', 'scheduledAt', 'headline', 'subheadline', 'autoOpen', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    // 10. Admin Registry (Strictly locked)
     match /admins/{adminId} {
       allow get: if isSignedIn() && request.auth.uid == adminId;
       allow list, create, update, delete: if false;
