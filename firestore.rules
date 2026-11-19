@@ -1,0 +1,164 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net (Default-Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Global Primitives & Helpers
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'josuelroque05052020@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidChannel(data) {
+      return data.keys().hasAll(['sectorName', 'responsibleName', 'phoneNumber', 'isPrimary', 'createdAt'])
+        && data.keys().hasOnly(['sectorName', 'responsibleName', 'phoneNumber', 'isPrimary', 'description', 'createdAt', 'updatedAt'])
+        && data.sectorName is string && data.sectorName.size() >= 2 && data.sectorName.size() <= 100
+        && data.responsibleName is string && data.responsibleName.size() >= 2 && data.responsibleName.size() <= 100
+        && data.phoneNumber is string && data.phoneNumber.size() >= 10 && data.phoneNumber.size() <= 20 && data.phoneNumber.matches('^[0-9]{10,20}$')
+        && data.isPrimary is bool
+        && (!('description' in data) || (data.description is string && data.description.size() <= 300))
+        && data.createdAt is timestamp
+        && (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidProject(data) {
+      return data.keys().hasAll(['title', 'category', 'location', 'mediaType', 'mediaUrl', 'description', 'statusLabel', 'createdAt'])
+        && data.keys().hasOnly(['title', 'category', 'location', 'mediaType', 'mediaUrl', 'description', 'statusLabel', 'createdAt'])
+        && data.title is string && data.title.size() >= 3 && data.title.size() <= 140
+        && data.category is string && data.category in ['Residencial', 'Comercial', 'Reformas']
+        && data.location is string && data.location.size() >= 2 && data.location.size() <= 120
+        && data.mediaType is string && data.mediaType in ['photo', 'video']
+        && data.mediaUrl is string && data.mediaUrl.size() >= 5 && data.mediaUrl.size() <= 750000
+        && data.description is string && data.description.size() >= 5 && data.description.size() <= 1500
+        && data.statusLabel is string && data.statusLabel.size() >= 2 && data.statusLabel.size() <= 40
+        && data.createdAt is timestamp;
+    }
+
+    function isValidPartner(data) {
+      return data.keys().hasAll(['brandName', 'segment', 'offerText', 'mediaUrl', 'createdAt'])
+        && data.keys().hasOnly(['brandName', 'segment', 'offerText', 'mediaUrl', 'actionUrl', 'createdAt'])
+        && data.brandName is string && data.brandName.size() >= 2 && data.brandName.size() <= 120
+        && data.segment is string && data.segment.size() >= 2 && data.segment.size() <= 80
+        && data.offerText is string && data.offerText.size() >= 5 && data.offerText.size() <= 600
+        && data.mediaUrl is string && data.mediaUrl.size() <= 750000
+        && (!('actionUrl' in data) || (data.actionUrl is string && data.actionUrl.size() <= 500))
+        && data.createdAt is timestamp;
+    }
+
+    function isValidLead(data) {
+      return data.keys().hasAll(['clientName', 'clientWhatsApp', 'sectorId', 'sectorName', 'sectorPhone', 'projectType', 'details', 'status', 'createdAt'])
+        && data.keys().hasOnly(['clientName', 'clientWhatsApp', 'sectorId', 'sectorName', 'sectorPhone', 'projectType', 'details', 'status', 'createdAt', 'updatedAt'])
+        && data.clientName is string && data.clientName.size() >= 3 && data.clientName.size() <= 120
+        && data.clientWhatsApp is string && data.clientWhatsApp.size() >= 10 && data.clientWhatsApp.size() <= 25
+        && isValidId(data.sectorId)
+        && data.sectorName is string && data.sectorName.size() >= 2 && data.sectorName.size() <= 100
+        && data.sectorPhone is string && data.sectorPhone.size() >= 10 && data.sectorPhone.size() <= 20
+        && data.projectType is string && data.projectType in ['Construção Residencial', 'Reforma Geral', 'Obra Comercial', 'Acabamento/Outros']
+        && data.details is string && data.details.size() >= 3 && data.details.size() <= 2000
+        && data.status is string && data.status in ['Novo', 'Em Atendimento', 'Fechado']
+        && data.createdAt is timestamp
+        && (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    // 4. Connection Validation Probe
+    match /test/{docId} {
+      allow get: if docId == 'connection';
+    }
+
+    // 5. WhatsApp Channels (Public read, Admin write)
+    match /channels/{channelId} {
+      allow get: if isValidId(channelId);
+      allow list: if true;
+      allow create: if isAdmin()
+        && isValidId(channelId)
+        && isValidChannel(incoming())
+        && incoming().createdAt == request.time
+        && !('updatedAt' in incoming());
+      allow update: if isAdmin()
+        && isValidId(channelId)
+        && isValidChannel(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['isPrimary', 'updatedAt']);
+      allow delete: if isAdmin() && isValidId(channelId);
+    }
+
+    // 6. Portfolio Projects (Public read, Admin write)
+    match /projects/{projectId} {
+      allow get: if isValidId(projectId);
+      allow list: if true;
+      allow create: if isAdmin()
+        && isValidId(projectId)
+        && isValidProject(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(projectId);
+    }
+
+    // 7. Partner Brands / Advertising (Public read, Admin write)
+    match /partners/{partnerId} {
+      allow get: if isValidId(partnerId);
+      allow list: if true;
+      allow create: if isAdmin()
+        && isValidId(partnerId)
+        && isValidPartner(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(partnerId);
+    }
+
+    // 8. Quote Leads (Public create with strict validation; PII read/update/delete strictly Admin only)
+    match /leads/{leadId} {
+      allow get: if isAdmin() && isValidId(leadId);
+      allow list: if isAdmin();
+      allow create: if isValidId(leadId)
+        && isValidLead(incoming())
+        && incoming().status == 'Novo'
+        && incoming().createdAt == request.time
+        && !('updatedAt' in incoming())
+        && (
+          exists(/databases/$(database)/documents/channels/$(incoming().sectorId)) ||
+          incoming().sectorId in ['wa-orcamentos', 'wa-engenharia']
+        );
+      allow update: if isAdmin()
+        && isValidId(leadId)
+        && isValidLead(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+      allow delete: if isAdmin() && isValidId(leadId);
+    }
+
+    // 9. Admin Registry (Strictly locked)
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && request.auth.uid == adminId;
+      allow list, create, update, delete: if false;
+    }
+  }
+}

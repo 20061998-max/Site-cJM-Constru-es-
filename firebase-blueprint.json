@@ -1,0 +1,247 @@
+{
+  "entities": {
+    "WhatsAppChannel": {
+      "title": "WhatsAppChannel",
+      "description": "Setor de atendimento via WhatsApp exibido no site e no formulário de orçamento.",
+      "type": "object",
+      "properties": {
+        "sectorName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100,
+          "description": "Nome do setor ou departamento."
+        },
+        "responsibleName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100,
+          "description": "Nome do responsável pelo setor."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 20,
+          "pattern": "^[0-9]{10,20}$",
+          "description": "Número com DDI e DDD contendo apenas dígitos."
+        },
+        "isPrimary": {
+          "type": "boolean",
+          "description": "Indica se este canal é o WhatsApp Principal do topo do site."
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Descrição breve do atendimento do setor."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp de criação validado pelo servidor."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp da última atualização validado pelo servidor."
+        }
+      },
+      "required": ["sectorName", "responsibleName", "phoneNumber", "isPrimary", "createdAt"]
+    },
+    "PortfolioProject": {
+      "title": "PortfolioProject",
+      "description": "Obra realizada publicada no portfólio da JM Construções.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 140,
+          "description": "Título da obra entregue."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["Residencial", "Comercial", "Reformas"],
+          "description": "Categoria da obra."
+        },
+        "location": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Localização e metragem aproximada."
+        },
+        "mediaType": {
+          "type": "string",
+          "enum": ["photo", "video"],
+          "description": "Tipo de mídia (foto ou vídeo)."
+        },
+        "mediaUrl": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 750000,
+          "description": "URL externa ou imagem otimizada em Data URL."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 1500,
+          "description": "Descrição técnica da obra."
+        },
+        "statusLabel": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 40,
+          "description": "Rótulo de entrega da obra."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp de publicação validado pelo servidor."
+        }
+      },
+      "required": ["title", "category", "location", "mediaType", "mediaUrl", "description", "statusLabel", "createdAt"]
+    },
+    "PartnerBrand": {
+      "title": "PartnerBrand",
+      "description": "Marca parceira ou fornecedor de materiais de construção divulgado no site.",
+      "type": "object",
+      "properties": {
+        "brandName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Nome da marca ou loja parceira."
+        },
+        "segment": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Segmento de atuação do fornecedor."
+        },
+        "offerText": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 600,
+          "description": "Texto promocional ou descrição da parceria."
+        },
+        "mediaUrl": {
+          "type": "string",
+          "maxLength": 750000,
+          "description": "URL ou imagem otimizada do banner/logo da marca."
+        },
+        "actionUrl": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Link externo opcional do fornecedor."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp de criação validado pelo servidor."
+        }
+      },
+      "required": ["brandName", "segment", "offerText", "mediaUrl", "createdAt"]
+    },
+    "QuoteLead": {
+      "title": "QuoteLead",
+      "description": "Solicitação de orçamento enviada por cliente pelo formulário do site.",
+      "type": "object",
+      "properties": {
+        "clientName": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 120,
+          "description": "Nome completo do cliente."
+        },
+        "clientWhatsApp": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 25,
+          "description": "WhatsApp com DDD do cliente."
+        },
+        "sectorId": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "ID do setor de WhatsApp escolhido."
+        },
+        "sectorName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100,
+          "description": "Nome do setor escolhido."
+        },
+        "sectorPhone": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 20,
+          "description": "Telefone do setor escolhido."
+        },
+        "projectType": {
+          "type": "string",
+          "enum": ["Construção Residencial", "Reforma Geral", "Obra Comercial", "Acabamento/Outros"],
+          "description": "Tipo de obra solicitada."
+        },
+        "details": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 2000,
+          "description": "Detalhes técnicos informados pelo cliente."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Novo", "Em Atendimento", "Fechado"],
+          "description": "Status de atendimento do orçamento."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp de criação validado pelo servidor."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp de atualização de status validado pelo servidor."
+        }
+      },
+      "required": ["clientName", "clientWhatsApp", "sectorId", "sectorName", "sectorPhone", "projectType", "details", "status", "createdAt"]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Registro de administrador autorizado.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["email", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/channels/{channelId}": {
+      "schema": { "$ref": "#/entities/WhatsAppChannel" },
+      "description": "Canais de WhatsApp exibidos no site e gerenciados pelo admin."
+    },
+    "/projects/{projectId}": {
+      "schema": { "$ref": "#/entities/PortfolioProject" },
+      "description": "Obras publicadas no portfólio."
+    },
+    "/partners/{partnerId}": {
+      "schema": { "$ref": "#/entities/PartnerBrand" },
+      "description": "Marcas parceiras e fornecedores divulgados na vitrine."
+    },
+    "/leads/{leadId}": {
+      "schema": { "$ref": "#/entities/QuoteLead" },
+      "description": "Pedidos de orçamento enviados por visitantes (PII restrita ao admin)."
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Lista de administradores autorizados."
+    }
+  }
+}
