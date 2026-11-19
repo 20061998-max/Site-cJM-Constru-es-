@@ -10,14 +10,36 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-      - run: npm ci
-      - run: npm run build
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+          node-version: 22
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Instalar dependências
+        run: |
+          if [ -f bun.lock ]; then
+            bun install --frozen-lockfile
+          elif [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install --no-audit --no-fund
+          fi
+
+      - name: Compilar site de produção
+        run: npm run build
+
+      - name: Publicar no Firebase Hosting
+        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AGELESS_CATCHER_T7CDJ != '' }}
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AGELESS_CATCHER_T7CDJ }}
           channelId: live
           projectId: ageless-catcher-t7cdj
+
+      - name: Aviso de configuração de Secret do Firebase
+        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AGELESS_CATCHER_T7CDJ == '' }}
+        run: |
+          echo "::warning::Build concluído com sucesso, mas o secret FIREBASE_SERVICE_ACCOUNT_AGELESS_CATCHER_T7CDJ ainda não foi configurado no GitHub (Settings > Secrets and variables > Actions) para publicar no Firebase Hosting."
