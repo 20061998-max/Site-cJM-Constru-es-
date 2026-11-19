@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { CalendarClock, Lock, MessageCircle, Rocket } from 'lucide-react';
+import heroConstructionImg from '../assets/images/hero_construction_site_1795044275424.jpg';
 import { LaunchConfig, WhatsAppChannel } from '../types';
 import { buildWhatsAppUrl } from '../utils/storage';
 
-const HERO_IMAGE_URL = '/src/assets/images/hero_construction_site_1795044275424.jpg';
+const HERO_IMAGE_URL = heroConstructionImg;
 
 interface LaunchCountdownProps {
   config: LaunchConfig;

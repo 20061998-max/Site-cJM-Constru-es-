@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { ArrowRight, Building, CalendarCheck2, ShieldCheck } from 'lucide-react';
+import heroConstructionImg from '../assets/images/hero_construction_site_1795044275424.jpg';
 
-const HERO_IMAGE_URL = '/src/assets/images/hero_construction_site_1795044275424.jpg';
+const HERO_IMAGE_URL = heroConstructionImg;
 
 export function Hero() {
   const [imgError, setImgError] = useState(false);

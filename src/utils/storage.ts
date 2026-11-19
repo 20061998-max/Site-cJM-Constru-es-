@@ -314,6 +314,9 @@ export async function createWhatsAppChannel(
   if (sectorName.length < 2) {
     throw new Error('Informe o nome do setor (mínimo 2 caracteres).');
   }
+  if (responsibleName.length < 2) {
+    throw new Error('Informe o nome do responsável (mínimo 2 caracteres).');
+  }
   if (!/^[0-9]{10,20}$/.test(phoneDigits)) {
     throw new Error('Informe um número válido com DDD (apenas dígitos, ex: 11999999999).');
   }
@@ -400,6 +403,9 @@ export async function createPortfolioProject(payload: {
   if (title.length < 3) {
     throw new Error('Informe o título da obra (mínimo 3 caracteres).');
   }
+  if (location.length < 2) {
+    throw new Error('Informe a localização da obra (mínimo 2 caracteres).');
+  }
   if (mediaUrl.length < 5) {
     throw new Error('Envie uma foto ou informe a URL da mídia.');
   }
@@ -450,6 +456,9 @@ export async function createPartnerBrand(payload: {
 
   if (brandName.length < 2) {
     throw new Error('Informe o nome da marca ou loja parceira.');
+  }
+  if (segment.length < 2) {
+    throw new Error('Informe o segmento do fornecedor (mínimo 2 caracteres).');
   }
   if (offerText.length < 5) {
     throw new Error('Informe o texto de propaganda da marca (mínimo 5 caracteres).');

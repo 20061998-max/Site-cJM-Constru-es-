@@ -216,11 +216,21 @@ export function AdminModal({
     try {
       await signInAdminWithGoogle();
     } catch (err) {
-      setLoginError(
-        err instanceof Error
-          ? err.message
-          : 'Não foi possível concluir o login com o Google.'
-      );
+      const rawMsg =
+        err instanceof Error ? err.message : String(err ?? '');
+      if (rawMsg.includes('auth/unauthorized-domain')) {
+        const host =
+          typeof window !== 'undefined' ? window.location.hostname : 'seu domínio';
+        setLoginError(
+          `Domínio "${host}" ainda não autorizado no Firebase Auth. Adicione "${host}" em Firebase Console → Authentication → Configurações → Domínios autorizados.`
+        );
+      } else {
+        setLoginError(
+          err instanceof Error
+            ? err.message
+            : 'Não foi possível concluir o login com o Google.'
+        );
+      }
     } finally {
       setIsLoggingIn(false);
     }
@@ -489,13 +499,18 @@ export function AdminModal({
     }
   };
 
+  const publicSiteUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}${window.location.pathname}`
+      : '';
+
   const handleCopySiteUrl = async () => {
     try {
-      await navigator.clipboard.writeText(window.location.origin);
+      await navigator.clipboard.writeText(publicSiteUrl);
       setCopiedUrl(true);
       setTimeout(() => setCopiedUrl(false), 2500);
     } catch {
-      setFeedbackMsg(`Link do site: ${window.location.origin}`);
+      setFeedbackMsg(`Link do site: ${publicSiteUrl}`);
     }
   };
 
@@ -1518,11 +1533,7 @@ export function AdminModal({
                         <input
                           type="text"
                           readOnly
-                          value={
-                            typeof window !== 'undefined'
-                              ? window.location.origin
-                              : ''
-                          }
+                          value={publicSiteUrl}
                           aria-label="Endereço do site"
                           className="flex-1 px-3 py-2 text-xs font-mono bg-[#f8fafc] border border-slate-300 rounded-lg text-slate-700"
                         />
@@ -1566,10 +1577,10 @@ export function AdminModal({
 
                     <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-2">
                       <h4 className="font-display text-sm font-bold text-[#0f172a]">
-                        Publicação Automática (Firebase Hosting)
+                        Publicação Automática (GitHub Pages + Firebase)
                       </h4>
                       <p className="text-xs text-slate-600 leading-relaxed">
-                        Projeto configurado com <code className="font-mono text-[#0f172a]">firebase.json</code>, <code className="font-mono text-[#0f172a]">.firebaserc</code> e fluxo automático via GitHub Actions para deploy contínuo no Firebase Hosting.
+                        Site compilado e publicado automaticamente via GitHub Pages a cada push na branch <code className="font-mono text-[#0f172a]">main</code>, com dados salvos em tempo real no Firebase Firestore.
                       </p>
                     </div>
                   </div>
